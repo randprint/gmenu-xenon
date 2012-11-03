@@ -22,6 +22,7 @@
 #include <SDL_gfxPrimitives.h>
 
 #include "settingsdialog.h"
+#define TR {printf("[Trace] in function %s, line %d, file %s\n",__FUNCTION__,__LINE__,__FILE__);}
 
 using namespace std;
 
@@ -35,8 +36,10 @@ SettingsDialog::SettingsDialog(
 {
 	if (icon!="" && gmenu2x->sc[icon] != NULL)
 		this->icon = icon;
-	else
+	else {
+		TR;
 		this->icon = "icons/generic.png";
+	}
 }
 
 SettingsDialog::~SettingsDialog() {

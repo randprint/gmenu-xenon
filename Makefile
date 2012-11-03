@@ -1,12 +1,18 @@
-TARGET=pc
+# Export a OPEN2X environment variable pointing to the open2x toolchain
+ifeq ($(strip $(DEVKITXENON)),)
+$(error "Please set DEVKITXENON in your environment. export DEVKITXENON=<path to>devkitPPC")
+endif
 
-CC = gcc
-CXX = g++
-STRIP = strip
+include $(DEVKITXENON)/rules
+    
+CC= $(PREFIX)gcc
+CXX = $(PREFIX)g++
+STRIP = $(PREFIX)strip
 
-CFLAGS = -I"/usr/include" `sdl-config --cflags` -DTARGET_PC -DTARGET=$(TARGET) -DLOG_LEVEL=4 -Wall -Wundef -Wno-deprecated -Wno-unknown-pragmas -Wno-format -pg -O0 -g3
+#CFLAGS = -I"$(DEVKITXENON)/usr/include" -I"$(DEVKITXENON)/usr/include/SDL" -DLOG_LEVEL=4 -DTARGET=$(TARGET) -DTARGET_PC -g $(MACHDEP) -ffunction-sections -fdata-sections -fomit-frame-pointer -ffast-math -funroll-loops -fno-exceptions -Wall -Wno-unknown-pragmas -Wno-format 
+CFLAGS = -I"$(DEVKITXENON)/usr/include" -I"$(DEVKITXENON)/usr/include/SDL" -DLOG_LEVEL=4 -DTARGET=$(TARGET) -DTARGET_PC -g $(MACHDEP) -ffunction-sections -fdata-sections -Wall
 CXXFLAGS = $(CFLAGS)
-LDFLAGS = -L"/usr/lib" `sdl-config --libs` -lfreetype -lSDL_image -lSDL_ttf -lSDL_gfx -ljpeg -lpng12 -lz #-lSDL_gfx
+LDFLAGS = $(MACHDEP) /usr/local/xenon/usr/lib/libxenon.a -L/usr/local/xenon/usr/lib -L$(CHAINPREFIX)/lib -lSDL_image -lSDL_ttf -lfreetype -lSDL_gfx -lfat -lpng -lSDL -lbz2 -lz -lxenon -lc -n -T /usr/local/xenon/app.lds
 
 OBJDIR = objs/$(TARGET)
 DISTDIR = dist/$(TARGET)/gmenu2x
@@ -19,29 +25,36 @@ OBJS := $(patsubst src/%.cpp, $(OBJDIR)/src/%.o, $(SOURCES))
 $(OBJDIR)/src/%.o: src/%.cpp src/%.h
 	$(CXX) $(CFLAGS) -o $@ -c $<
 
-all: dir shared
+all: dir static
 
 dir:
 	@if [ ! -d $(OBJDIR)/src ]; then mkdir -p $(OBJDIR)/src; fi
 
-debug: $(OBJS)
+debug-static: $(OBJS)
 	@echo "Linking gmenu2x-debug..."
-	$(CXX) -o $(APPNAME)-debug $(LDFLAGS) $(OBJS)
+	$(CXX) -o $(APPNAME)-debug $(OBJS) -static $(LDFLAGS)
 
-shared: debug
+debug-shared: $(OBJS)
+	@echo "Linking gmenu2x-debug..."
+	$(CXX) -o $(APPNAME)-debug  $(LDFLAGS) $(OBJS)
+
+shared: debug-shared
+	$(STRIP) $(APPNAME)-debug -o $(APPNAME)
+
+static: debug-static
 	$(STRIP) $(APPNAME)-debug -o $(APPNAME)
 
 clean:
 	rm -rf $(OBJDIR) $(DISTDIR) *.gcda *.gcno $(APPNAME)
 
-dist: dir shared
-	install -m755 -D $(APPNAME)-debug $(DISTDIR)/gmenu2x
-	install -m644 assets/$(TARGET)/input.conf $(DISTDIR)
+dist: dir static
+	install -m755 -D $(APPNAME) $(DISTDIR)/gmenu2x
 	install -m755 -d $(DISTDIR)/sections/applications $(DISTDIR)/sections/emulators $(DISTDIR)/sections/games $(DISTDIR)/sections/settings
 	install -m644 -D README.rst $(DISTDIR)/README.txt
 	install -m644 -D COPYING $(DISTDIR)/COPYING
 	install -m644 -D ChangeLog $(DISTDIR)/ChangeLog
-	cp -RH assets/skins assets/translations $(DISTDIR)
+	cp -RH assets/skins assets/translations assets/$(TARGET)/* $(DISTDIR)
+	mv $(DISTDIR)/autorun.gpu $(DISTDIR)/..
 
 -include $(patsubst src/%.cpp, $(OBJDIR)/src/%.d, $(SOURCES))
 

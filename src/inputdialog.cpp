@@ -86,19 +86,19 @@ InputDialog::InputDialog(GMenu2X *gmenu2x, InputManager &inputMgr_,
 
 	ButtonAction actBackspace = MakeDelegate(this, &InputDialog::backspace);
 
-	btnBackspaceX = new IconButton(gmenu2x, "skin:imgs/buttons/x.png");
+	btnBackspaceX = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/x.png");
 	btnBackspaceX->setAction(actBackspace);
 
-	btnBackspaceL = new IconButton(gmenu2x, "skin:imgs/buttons/l.png", gmenu2x->tr["Backspace"]);
+	btnBackspaceL = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/l.png", gmenu2x->tr["Backspace"]);
 	btnBackspaceL->setAction(actBackspace);
 
-	btnSpace = new IconButton(gmenu2x, "skin:imgs/buttons/r.png", gmenu2x->tr["Space"]);
+	btnSpace = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/r.png", gmenu2x->tr["Space"]);
 	btnSpace->setAction(MakeDelegate(this, &InputDialog::space));
 
-	btnConfirm = new IconButton(gmenu2x, "skin:imgs/buttons/b.png", gmenu2x->tr["Confirm"]);
+	btnConfirm = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/b.png", gmenu2x->tr["Confirm"]);
 	btnConfirm->setAction(MakeDelegate(this, &InputDialog::confirm));
 
-	btnChangeKeys = new IconButton(gmenu2x, "skin:imgs/buttons/y.png", gmenu2x->tr["Change keys"]);
+	btnChangeKeys = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/y.png", gmenu2x->tr["Change keys"]);
 	btnChangeKeys->setAction(MakeDelegate(this, &InputDialog::changeKeys));
 }
 

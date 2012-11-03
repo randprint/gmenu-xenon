@@ -48,7 +48,7 @@ MenuSettingBool::MenuSettingBool(GMenu2X *gmenu2x, const string &name, const str
 
 void MenuSettingBool::initButton()
 {
-	IconButton *btn = new IconButton(gmenu2x, "skin:imgs/buttons/b.png",
+	IconButton *btn = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/b.png",
 									 gmenu2x->tr["Switch"]);
 	btn->setAction(MakeDelegate(this, &MenuSettingBool::toggle));
 	buttonBox.add(btn);

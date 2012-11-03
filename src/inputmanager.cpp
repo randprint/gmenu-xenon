@@ -21,7 +21,7 @@
 #include "debug.h"
 #include "inputmanager.h"
 #include "utilities.h"
-
+#include <stdlib.h>
 #include <iostream>
 #include <fstream>
 

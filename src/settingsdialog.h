@@ -45,7 +45,7 @@ private:
 	string text, icon;
 
 public:
-	SettingsDialog(GMenu2X *gmenu2x, InputManager &inputMgr, Touchscreen &ts, const string &text, const string &icon="skin:sections/settings.png");
+	SettingsDialog(GMenu2X *gmenu2x, InputManager &inputMgr, Touchscreen &ts, const string &text, const string &icon="uda://gmenu2x/skins/Default/sections/settings.png");
 	~SettingsDialog();
 
 	bool edited();

@@ -40,7 +40,7 @@ using std::string;
 
 typedef struct {
 	int type;
-	uint num;
+	unsigned int num;
 	int value;
 	int treshold;
 } InputMap;

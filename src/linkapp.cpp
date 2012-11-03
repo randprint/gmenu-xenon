@@ -29,6 +29,7 @@
 #include "selector.h"
 #include "textmanualdialog.h"
 #include "debug.h"
+#define TR {printf("[Trace] in function %s, line %d, file %s\n",__FUNCTION__,__LINE__,__FILE__);}
 
 using namespace std;
 
@@ -37,6 +38,7 @@ LinkApp::LinkApp(GMenu2X *gmenu2x_, InputManager &inputMgr_,
 	: Link(gmenu2x_),
 	  inputMgr(inputMgr_)
 {
+	TR;
 	manual = "";
 	file = linkfile;
 	wrapper = false;
@@ -52,17 +54,22 @@ LinkApp::LinkApp(GMenu2X *gmenu2x_, InputManager &inputMgr_,
 	useRamTimings = false;
 	useGinge = false;
 	workdir = "";
-
+	TR;
 	string line;
+	TR;
 	ifstream infile (linkfile, ios_base::in);
+	TR;
 	while (getline(infile, line, '\n')) {
+		TR;
 		line = trim(line);
 		if (line=="") continue;
 		if (line[0]=='#') continue;
-
+		TR;
 		string::size_type position = line.find("=");
 		string name = trim(line.substr(0,position));
 		string value = trim(line.substr(position+1));
+		TR;
+		INFO("| option: '%s'  | value: '%s'", name.c_str(), value.c_str());
 		if (name == "title") {
 			title = value;
 		} else if (name == "description") {
@@ -103,14 +110,15 @@ LinkApp::LinkApp(GMenu2X *gmenu2x_, InputManager &inputMgr_,
 		} else if (name == "selectoraliases") {
 			setAliasFile( value );
 		} else {
+			TR;
 			WARNING("Unrecognized option: '%s'", name.c_str());
 			break;
 		}
 	}
 	infile.close();
-
+	TR;
 	if (iconPath.empty()) searchIcon();
-
+	TR;
 	edited = false;
 }
 
@@ -128,8 +136,10 @@ const string &LinkApp::searchIcon() {
 		iconPath = gmenu2x->sc.getSkinFilePath("icons/"+exectitle);
 	else if (fileExists(execicon))
 		iconPath = execicon;
-	else
+	else {
+		TR;
 		iconPath = gmenu2x->sc.getSkinFilePath("icons/generic.png");
+	}
 
 	return iconPath;
 }
@@ -244,7 +254,7 @@ bool LinkApp::save() {
 
 void LinkApp::drawRun() {
 	//Darkened background
-	gmenu2x->s->box(0, 0, gmenu2x->resX, gmenu2x->resY, 0,0,0,150);
+	gmenu2x->s->box(25, 25, (gmenu2x->resX - 25), (gmenu2x->resY - 25), 0,0,0,150);
 
 	string text = gmenu2x->tr.translate("Launching $1",getTitle().c_str(),NULL);
 	int textW = gmenu2x->font->getTextWidth(text);
@@ -352,7 +362,7 @@ void LinkApp::selector(int startSelection, const string &selectorDir) {
 void LinkApp::launch(const string &selectedFile, const string &selectedDir) {
 	drawRun();
 	save();
-#if !defined(TARGET_GP2X) && !defined(TARGET_WIZ) && !defined(TARGET_CAANOO)
+#if !defined(TARGET_GP2X) && !defined(TARGET_WIZ) && !defined(TARGET_CAANOO) && !defined(XENON)
 	//delay for testing
 	SDL_Delay(1000);
 #endif
@@ -388,12 +398,12 @@ void LinkApp::launch(const string &selectedFile, const string &selectedDir) {
 			if (params == origParams) params += " " + cmdclean(dir+selectedFile);
 		}
 	}
-
+#ifndef XENON
 	if (useRamTimings)
 		gmenu2x->applyRamTimings();
 	if (volume()>=0)
 		gmenu2x->setVolume(volume());
-
+#endif
 	INFO("Executing '%s' (%s %s)", title.c_str(), exec.c_str(), params.c_str());
 
 	//check if we have to quit
@@ -417,7 +427,7 @@ void LinkApp::launch(const string &selectedFile, const string &selectedDir) {
 		if (fileExists(ginge_prep))
 			command = cmdclean(ginge_prep) + " " + command;
 	}
-	if (gmenu2x->confInt["outputLogs"]) command += " &> " + cmdclean(gmenu2x->getExePath()) + "/log.txt";
+	if (gmenu2x->confInt["outputLogs"]) command += " &> uda://gmenu2x/log.txt";
 	if (wrapper) command += "; sync & cd "+cmdclean(gmenu2x->getExePath())+"; exec ./gmenu2x";
 	if (dontleave) {
 		system(command.c_str());
@@ -433,11 +443,11 @@ void LinkApp::launch(const string &selectedFile, const string &selectedDir) {
 			gmenu2x->setClock(clock());
 		if (gamma()!=0 && gamma()!=gmenu2x->confInt["gamma"])
 			gmenu2x->setGamma(gamma());
-		execlp("/bin/sh","/bin/sh","-c",command.c_str(),NULL);
+		//todo //execlp("/bin/sh","/bin/sh","-c",command.c_str(),NULL);
 		//if execution continues then something went wrong and as we already called SDL_Quit we cannot continue
 		//try relaunching gmenu2x
 		chdir(gmenu2x->getExePath().c_str());
-		execlp("./gmenu2x", "./gmenu2x", NULL);
+		//todo //execlp("./gmenu2x", "./gmenu2x", NULL);
 	}
 
 

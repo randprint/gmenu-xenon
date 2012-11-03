@@ -30,11 +30,11 @@ MenuSettingFile::MenuSettingFile(GMenu2X *gmenu2x, const string &name, const str
 {
 	IconButton *btn;
 
-	btn = new IconButton(gmenu2x, "skin:imgs/buttons/x.png", gmenu2x->tr["Clear"]);
+	btn = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/x.png", gmenu2x->tr["Clear"]);
 	btn->setAction(MakeDelegate(this, &MenuSettingFile::clear));
 	buttonBox.add(btn);
 
-	btn = new IconButton(gmenu2x, "skin:imgs/buttons/b.png", gmenu2x->tr["Select a file"]);
+	btn = new IconButton(gmenu2x, "uda://gmenu2x/skins/Default/imgs/buttons/b.png", gmenu2x->tr["Select a file"]);
 	btn->setAction(MakeDelegate(this, &MenuSettingFile::edit));
 	buttonBox.add(btn);
 }

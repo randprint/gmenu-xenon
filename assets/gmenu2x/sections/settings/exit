@@ -1,0 +1,5 @@
+title=Exit
+description=Exit GMenu2X to the official frontend
+icon=uda://gmenu2x/skins/Default/icons/exit.png
+exec=uda://gmenu2x.elf32
+params=--disable-autorun

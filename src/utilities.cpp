@@ -24,10 +24,12 @@
 #include <dirent.h>
 #include <fstream>
 #include <iostream>
-#include <stdio.h>
 #include <strings.h>
 #include <math.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include <SDL.h>
 
 #include "utilities.h"
@@ -76,7 +78,7 @@ bool rmtree(string path) {
 	struct dirent *dptr;
 	string filepath;
 
-	DEBUG("RMTREE: '%s'", path.c_str());
+	INFO("RMTREE: '%s'", path.c_str());
 
 	if ((dirp = opendir(path.c_str())) == NULL) return false;
 	if (path[path.length()-1]!='/') path += "/";
@@ -95,7 +97,7 @@ bool rmtree(string path) {
 	}
 
 	closedir(dirp);
-	return rmdir(path.c_str())==0;
+	return 0; //todo //rmdir(path.c_str())==0;
 }
 
 int max (int a, int b) {

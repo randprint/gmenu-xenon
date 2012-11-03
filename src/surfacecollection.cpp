@@ -22,6 +22,7 @@
 #include "surface.h"
 #include "utilities.h"
 #include "debug.h"
+#include <stdio.h>
 
 using std::endl;
 using std::string;
@@ -38,18 +39,22 @@ void SurfaceCollection::setSkin(const string &skin) {
 }
 
 string SurfaceCollection::getSkinFilePath(const string &file) {
-	if (fileExists("skins/"+skin+"/"+file))
-		return "skins/"+skin+"/"+file;
-	else if (fileExists("skins/Default/"+file))
-		return "skins/Default/"+file;
-	else
+	if (fileExists("uda://gmenu2x/skins/"+skin+"/"+file)){
+		INFO("full path: uda://gmenu2x/skins/%s/%s",skin.c_str(), file.c_str());
+		return "uda://gmenu2x/skins/"+skin+"/"+file;
+	} else if (fileExists("uda://gmenu2x/skins/Default/"+file)) {
+		INFO("full path: uda://gmenu2x/skins/Default/%s",file.c_str());
+		return "uda://gmenu2x/skins/Default/"+file;
+	} else {
+		ERROR("something failed loading : %s",file.c_str());
 		return "";
+	}
 }
 
 void SurfaceCollection::debug() {
 	SurfaceHash::iterator end = surfaces.end();
 	for(SurfaceHash::iterator curr = surfaces.begin(); curr != end; curr++){
-		DEBUG("key: %i", curr->first.c_str());
+		INFO("key: %i", curr->first.c_str());
 	}
 }
 
@@ -64,12 +69,12 @@ Surface *SurfaceCollection::add(Surface *s, const string &path) {
 }
 
 Surface *SurfaceCollection::add(const string &path, bool alpha) {
-	DEBUG("Adding surface: '%s'", path.c_str());
+	INFO("Adding surface: '%s'", path.c_str());
 
 	if (exists(path)) del(path);
 	string filePath = path;
 
-	if (filePath.substr(0,5)=="skin:") {
+	if (filePath.substr(0,5)=="uda://gmenu2x/skins/Default/") {
 		filePath = getSkinFilePath(filePath.substr(5,filePath.length()));
 		if (filePath.empty())
 			return NULL;
@@ -81,12 +86,13 @@ Surface *SurfaceCollection::add(const string &path, bool alpha) {
 }
 
 Surface *SurfaceCollection::addSkinRes(const string &path, bool alpha) {
-	DEBUG("Adding skin surface: '%s'", path.c_str());
+	INFO("Adding skin surface: '%s'", path.c_str());
 
 	if (path.empty()) return NULL;
 	if (exists(path)) del(path);
 
 	string skinpath = getSkinFilePath(path);
+
 	if (skinpath.empty())
 		return NULL;
 	Surface *s = new Surface(skinpath,alpha);

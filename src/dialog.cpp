@@ -2,6 +2,7 @@
 
 #include "dialog.h"
 #include "gmenu2x.h"
+#define TR {printf("[Trace] in function %s, line %d, file %s\n",__FUNCTION__,__LINE__,__FILE__);}
 
 Dialog::Dialog(GMenu2X *gmenu2x) : gmenu2x(gmenu2x) {}
 
@@ -17,8 +18,10 @@ void Dialog::drawTitleIcon(const std::string &icon, bool skinRes, Surface *s) {
 			i = gmenu2x->sc[icon];
 	}
 
-	if (i==NULL)
+	if (i==NULL) {
+		TR;
 		i = gmenu2x->sc.skinRes("icons/generic.png");
+	}
 
 	i->blit(s,4,(gmenu2x->skinConfInt["topBarHeight"]-32)/2, 32, 32);
 }

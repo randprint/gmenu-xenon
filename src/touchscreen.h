@@ -31,7 +31,7 @@ typedef struct {
 	uint16_t x;
 	uint16_t y;
 	uint16_t pad;
-	struct timeval stamp;
+	uint16_t stamp;
 } TS_EVENT;
 
 class Touchscreen {

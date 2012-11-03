@@ -1,0 +1,3 @@
+title=Movies
+icon=uda://gmenu2x/skins/Default/icons/mplayer.png
+exec=uda://mplayer.elf32

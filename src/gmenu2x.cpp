@@ -27,7 +27,7 @@
 #include <unistd.h>
 #include <math.h>
 #include <SDL.h>
-#include <SDL_gfxPrimitives.h>
+//#include <SDL_gfxPrimitives.h>
 #include <signal.h>
 
 #include <sys/statvfs.h>
@@ -40,9 +40,30 @@
 #include <sys/types.h>
 #include <dirent.h>
 
+//just for delays : remove
+#include <time/time.h>
+
 //for soundcard
-#include <sys/ioctl.h>
-#include <linux/soundcard.h>
+#include <sys/iosupport.h>
+#include <xenon_sound/sound.h>
+
+//for xenon
+#ifdef XENON
+#include <libfat/fat.h>
+#include <usb/usbmain.h>
+#include <diskio/ata.h>
+#include <xenon_soc/xenon_power.h>
+#include <network/network.h>
+#include <threads/threads.h>
+#include <threads/gdb.h>
+#include <console/console.h>
+#include <xenos/xenos.h>
+#include <xenon_sound/sound.h>
+#include <xenon_uart/xenon_uart.h>
+#include <libfat/fat.h>
+#include <input/input.h>
+#define TR {printf("[Trace] in function %s, line %d, file %s\n",__FUNCTION__,__LINE__,__FILE__);}
+#endif
 
 #include "linkapp.h"
 #include "linkaction.h"
@@ -70,10 +91,10 @@
 
 #include "debug.h"
 
-#include <sys/mman.h>
+//#include <sys/mman.h>
 
-const char *CARD_ROOT = "/mnt/"; //Note: Add a trailing /!
-const int CARD_ROOT_LEN = 5;
+const char *CARD_ROOT = "uda://"; //Note: Add a trailing /!
+const int CARD_ROOT_LEN = 6;
 
 static GMenu2X *app;
 
@@ -125,8 +146,30 @@ int main(int /*argc*/, char * /*argv*/[]) {
 	signal(SIGSEGV,&quit_all);
 	signal(SIGTERM,&quit_all);
 
+	#ifdef XENON
+
+	xenon_make_it_faster(XENON_SPEED_FULL);
+    xenos_init(VIDEO_MODE_AUTO);
+    //console_init();
+	printf("Vid up\n");
+	threading_init();
+	//startbailthread();
+	printf("Sched up\n");
+
+	network_init_sys();
+	gdb_init();
+
+	usb_init();
+	printf("Sound Init\n");
+	xenon_sound_init();
+	usb_do_poll();
+	fatInitDefault();
+
+	#endif
+
 	app = new GMenu2X();
-	DEBUG("Starting main()");
+	INFO("Starting main()");
+	
 	app->main();
 
 	return 0;
@@ -146,7 +189,7 @@ void GMenu2X::gp2x_init() {
 #elif defined(TARGET_WIZ) || defined(TARGET_CAANOO)
 		memregs = (unsigned short*)mmap(0, 0x20000, PROT_READ|PROT_WRITE, MAP_SHARED, memdev, 0xc0000000);
 #endif
-		if (memregs == MAP_FAILED) {
+		if (memregs == 0) { //MAP_FAILED) {
 			ERROR("Could not mmap hardware registers!");
 			close(memdev);
 		}
@@ -257,13 +300,16 @@ GMenu2X::GMenu2X() {
 	else
 		readCommonIni();
 #endif
-
+#ifdef XENON
+	resX=1280;
+	resY=720;
+#endif
 	halfX = resX/2;
 	halfY = resY/2;
 	bottomBarIconY = resY-18;
 	bottomBarTextY = resY-10;
 
-	path = "";
+	path = "uda://gmenu2x/";
 	getExePath();
 
 #if defined(TARGET_GP2X)
@@ -294,18 +340,24 @@ GMenu2X::GMenu2X() {
 	if( SDL_Init(SDL_INIT_VIDEO|SDL_INIT_TIMER|SDL_INIT_JOYSTICK)<0 ) {
 		ERROR("Could not initialize SDL: %s", SDL_GetError());
 		quit();
+	} else {
+		INFO("SDL initialized");
 	}
 
 	s = new Surface();
-#if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO)
+#if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO) || defined(XENON)
 	{
 		//I'm forced to use SW surfaces since with HW there are issuse with changing the clock frequency
+		INFO("Software surface");
 		SDL_Surface *dbl = SDL_SetVideoMode(resX, resY, confInt["videoBpp"], SDL_SWSURFACE);
 		s->enableVirtualDoubleBuffer(dbl);
 		SDL_ShowCursor(0);
 	}
-#else
+#else 
+{
+	INFO("Hardware surface");
 	s->raw = SDL_SetVideoMode(resX, resY, confInt["videoBpp"], SDL_HWSURFACE|SDL_DOUBLEBUF);
+}
 #endif
 
 	bg = NULL;
@@ -313,23 +365,26 @@ GMenu2X::GMenu2X() {
 	font = NULL;
 	menu = NULL;
 	setSkin(confStr["skin"], false);
+	INFO("initing menu");
+	//mdelay(30000);
 	initMenu();
 
 	if (!fileExists(confStr["wallpaper"])) {
-		DEBUG("Searching wallpaper");
+		INFO("Searching wallpaper");
 
-		FileLister fl("skins/"+confStr["skin"]+"/wallpapers",false,true);
+		FileLister fl("uda://gmenu2x/skins/Default/wallpapers",false,true);
 		fl.setFilter(".png,.jpg,.jpeg,.bmp");
 		fl.browse();
 		if (fl.getFiles().size()<=0 && confStr["skin"] != "Default")
-			fl.setPath("skins/Default/wallpapers",true);
+			fl.setPath("uda://gmenu2x/skins/Default/wallpapers",true);
 		if (fl.getFiles().size()>0)
 			confStr["wallpaper"] = fl.getPath()+fl.getFiles()[0];
 	}
-
+	INFO("initing BG");
 	initBG();
 	input.init(path+"input.conf");
 	setInputSpeed();
+	INFO("initing services");
 	initServices();
 
 	setGamma(confInt["gamma"]);
@@ -377,7 +432,7 @@ void GMenu2X::initBG() {
 	if (bg != NULL) delete bg;
 
 	bg = new Surface(s);
-	bg->box(0,0,resX,resY,0,0,0);
+	bg->box(25,25,(resX - 25),(resY - 25),0,0,0);
 	if (fileExists(confStr["wallpaper"])) {
 		Surface wall(confStr["wallpaper"],false);
 		wall.blit(bg,0,0);
@@ -437,32 +492,33 @@ void GMenu2X::initFont() {
 void GMenu2X::initMenu() {
 	//Menu structure handler
 	menu = new Menu(this);
+	TR;
 	for (uint i=0; i<menu->getSections().size(); i++) {
+		TR;
 		//Add virtual links in the applications section
 		if (menu->getSections()[i]=="applications") {
-			menu->addActionLink(i,"Explorer",MakeDelegate(this,&GMenu2X::explorer),tr["Launch an application"],"skin:icons/explorer.png");
+			menu->addActionLink(i,"Explorer",MakeDelegate(this,&GMenu2X::explorer),tr["Launch an application"],"uda://gmenu2x/skins/Default/icons/explorer.png");
 		}
-
 		//Add virtual links in the setting section
 		else if (menu->getSections()[i]=="settings") {
-			menu->addActionLink(i,"GMenu2X",MakeDelegate(this,&GMenu2X::options),tr["Configure GMenu2X's options"],"skin:icons/configure.png");
+			menu->addActionLink(i,"GMenu2X",MakeDelegate(this,&GMenu2X::options),tr["Configure GMenu2X's options"],"uda://gmenu2x/skins/Default/icons/configure.png");
 			if (fwType=="open2x")
-				menu->addActionLink(i,"Open2x",MakeDelegate(this,&GMenu2X::settingsOpen2x),tr["Configure Open2x system settings"],"skin:icons/o2xconfigure.png");
-			menu->addActionLink(i,tr["Skin"],MakeDelegate(this,&GMenu2X::skinMenu),tr["Configure skin"],"skin:icons/skin.png");
-			menu->addActionLink(i,tr["Wallpaper"],MakeDelegate(this,&GMenu2X::changeWallpaper),tr["Change GMenu2X wallpaper"],"skin:icons/wallpaper.png");
+				menu->addActionLink(i,"Open2x",MakeDelegate(this,&GMenu2X::settingsOpen2x),tr["Configure Open2x system settings"],"uda://gmenu2x/skins/Default/icons/o2xconfigure.png");
+			menu->addActionLink(i,tr["Skin"],MakeDelegate(this,&GMenu2X::skinMenu),tr["Configure skin"],"uda://gmenu2x/skins/Default/icons/skin.png");
+			menu->addActionLink(i,tr["Wallpaper"],MakeDelegate(this,&GMenu2X::changeWallpaper),tr["Change GMenu2X wallpaper"],"uda://gmenu2x/skins/Default/icons/wallpaper.png");
 #ifdef TARGET_GP2X
-			menu->addActionLink(i,"TV",MakeDelegate(this,&GMenu2X::toggleTvOut),tr["Activate/deactivate tv-out"],"skin:icons/tv.png");
-			menu->addActionLink(i,"USB Sd",MakeDelegate(this,&GMenu2X::activateSdUsb),tr["Activate Usb on SD"],"skin:icons/usb.png");
+			menu->addActionLink(i,"TV",MakeDelegate(this,&GMenu2X::toggleTvOut),tr["Activate/deactivate tv-out"],"uda://gmenu2x/skins/Default/icons/tv.png");
+			menu->addActionLink(i,"USB Sd",MakeDelegate(this,&GMenu2X::activateSdUsb),tr["Activate Usb on SD"],"uda://gmenu2x/skins/Default/icons/usb.png");
 			if (fwType=="gph" && !f200)
-				menu->addActionLink(i,"USB Nand",MakeDelegate(this,&GMenu2X::activateNandUsb),tr["Activate Usb on Nand"],"skin:icons/usb.png");
-			//menu->addActionLink(i,"USB Root",MakeDelegate(this,&GMenu2X::activateRootUsb),tr["Activate Usb on the root of the Gp2x Filesystem"],"skin:icons/usb.png");
+				menu->addActionLink(i,"USB Nand",MakeDelegate(this,&GMenu2X::activateNandUsb),tr["Activate Usb on Nand"],"uda://gmenu2x/skins/Default/icons/usb.png");
+			//menu->addActionLink(i,"USB Root",MakeDelegate(this,&GMenu2X::activateRootUsb),tr["Activate Usb on the root of the Gp2x Filesystem"],"uda://gmenu2x/skins/Default/icons/usb.png");
 #endif
-			if (fileExists(path+"log.txt"))
-				menu->addActionLink(i,tr["Log Viewer"],MakeDelegate(this,&GMenu2X::viewLog),tr["Displays last launched program's output"],"skin:icons/ebook.png");
-			menu->addActionLink(i,tr["About"],MakeDelegate(this,&GMenu2X::about),tr["Info about GMenu2X"],"skin:icons/about.png");
+			if (fileExists("uda://gmenu2x/log.txt"))
+				menu->addActionLink(i,tr["Log Viewer"],MakeDelegate(this,&GMenu2X::viewLog),tr["Displays last launched program's output"],"uda://gmenu2x/skins/Default/icons/ebook.png");
+			menu->addActionLink(i,tr["About"],MakeDelegate(this,&GMenu2X::about),tr["Info about GMenu2X"],"uda://gmenu2x/skins/Default/icons/about.png");
 		}
 	}
-
+	TR;
 	menu->setSectionIndex(confInt["section"]);
 	menu->setLinkIndex(confInt["link"]);
 
@@ -540,7 +596,7 @@ and all the anonymous donors...\n\
 }
 
 void GMenu2X::viewLog() {
-	string logfile = path+"log.txt";
+	string logfile = "uda://gmenu2x/log.txt";
 	if (!fileExists(logfile)) return;
 	ifstream inf(logfile.c_str(), ios_base::in);
 	if (inf.is_open()) return;
@@ -560,9 +616,10 @@ void GMenu2X::viewLog() {
 	if (mb.exec() == CONFIRM) {
 		ledOn();
 		unlink(logfile.c_str());
-		sync();
+//		sync();
 		menu->deleteSelectedLink();
 		ledOff();
+//TODO
 	}
 }
 
@@ -609,7 +666,7 @@ void GMenu2X::readConfig() {
 
 void GMenu2X::writeConfig() {
 	ledOn();
-	string conffile = path+"gmenu2x.conf";
+	string conffile = "uda://gmenu2x/gmenu2x.conf";
 	ofstream inf(conffile.c_str());
 	if (inf.is_open()) {
 		ConfStrHash::iterator endS = confStr.end();
@@ -621,7 +678,8 @@ void GMenu2X::writeConfig() {
 			inf << curr->first << "=" << curr->second << endl;
 
 		inf.close();
-		sync();
+//		sync();
+//TODO
 	}
 	ledOff();
 }
@@ -669,14 +727,15 @@ void GMenu2X::writeConfigOpen2x() {
 		if (volumeScalerPhones != VOLUME_SCALER_PHONES) inf << "PHONES_VALUE=" << volumeScalerPhones << endl;
 		if (volumeScalerNormal != VOLUME_SCALER_NORMAL) inf << "NORMAL_VALUE=" << volumeScalerNormal << endl;
 		inf.close();
-		sync();
+//		sync();
+//TODO
 	}
 	ledOff();
 }
 
 void GMenu2X::writeSkinConfig() {
 	ledOn();
-	string conffile = path+"skins/"+confStr["skin"]+"/skin.conf";
+	string conffile = path+"gmenu2x/skins/"+confStr["skin"]+"/skin.conf";
 	ofstream inf(conffile.c_str());
 	if (inf.is_open()) {
 		ConfStrHash::iterator endS = skinConfStr.end();
@@ -697,14 +756,15 @@ void GMenu2X::writeSkinConfig() {
 
 
 		inf.close();
-		sync();
+//		sync();
+//TODO
 	}
 	ledOff();
 }
 
 void GMenu2X::readCommonIni() {
-	if (!fileExists("/usr/gp2x/common.ini")) return;
-	ifstream inf("/usr/gp2x/common.ini", ios_base::in);
+	if (!fileExists("uda://gmenu2x/common.ini")) return;
+	ifstream inf("uda://gmenu2x/common.ini", ios_base::in);
 	if (!inf.is_open()) return;
 	string line;
 	string section = "";
@@ -740,8 +800,8 @@ void GMenu2X::writeCommonIni() {}
 
 void GMenu2X::readTmp() {
 	lastSelectorElement = -1;
-	if (!fileExists("/tmp/gmenu2x.tmp")) return;
-	ifstream inf("/tmp/gmenu2x.tmp", ios_base::in);
+	if (!fileExists("uda://gmenu2x/tmp/gmenu2x.tmp")) return;
+	ifstream inf("uda://gmenu2x/tmp/gmenu2x.tmp", ios_base::in);
 	if (!inf.is_open()) return;
 	string line;
 	string section = "";
@@ -764,7 +824,7 @@ void GMenu2X::readTmp() {
 }
 
 void GMenu2X::writeTmp(int selelem, const string &selectordir) {
-	string conffile = "/tmp/gmenu2x.tmp";
+	string conffile = "uda://gmenu2x/tmp/gmenu2x.tmp";
 	ofstream inf(conffile.c_str());
 	if (inf.is_open()) {
 		inf << "section=" << menu->selSectionIndex() << endl;
@@ -815,7 +875,7 @@ void GMenu2X::main() {
 	uint sectionsCoordX = 24;
 	SDL_Rect re = {0,0,0,0};
 
-	btnContextMenu = new IconButton(this,"skin:imgs/menu.png");
+	btnContextMenu = new IconButton(this,"uda://gmenu2x/skins/Default/imgs/menu.png");
 	btnContextMenu->setPosition(resX-38, bottomBarIconY);
 	btnContextMenu->setAction(MakeDelegate(this, &GMenu2X::contextMenu));
 
@@ -836,7 +896,7 @@ void GMenu2X::main() {
 		else
 			sc.skinRes("imgs/r_disabled.png")->blit(s,resX-10,0);
 		for (i=menu->firstDispSection(); i<menu->getSections().size() && i<menu->firstDispSection()+linkColumns; i++) {
-			string sectionIcon = "skin:sections/"+menu->getSections()[i]+".png";
+			string sectionIcon = "uda://gmenu2x/skins/Default/sections/"+menu->getSections()[i]+".png";
 			x = (i-menu->firstDispSection())*skinConfInt["linkWidth"]+sectionsCoordX;
 			if (menu->selSectionIndex()==(int)i)
 				s->box(x, 0, skinConfInt["linkWidth"],
@@ -905,8 +965,8 @@ void GMenu2X::main() {
 
 		//On Screen Help
 		if (input.isActive(MODIFIER)) {
-			s->box(10,50,300,143, skinConfColors[COLOR_MESSAGE_BOX_BG]);
-			s->rectangle( 12,52,296,helpBoxHeight, skinConfColors[COLOR_MESSAGE_BOX_BORDER] );
+			s->box(35,75,325,168, skinConfColors[COLOR_MESSAGE_BOX_BG]);
+			s->rectangle( 27,77,321,helpBoxHeight, skinConfColors[COLOR_MESSAGE_BOX_BORDER] );
 			s->write( font, tr["CONTROLS"], 20, 60 );
 			s->write( font, tr["B, Stick press: Launch link / Confirm action"], 20, 80 );
 			s->write( font, tr["L, R: Change section"], 20, 95 );
@@ -1020,13 +1080,13 @@ void GMenu2X::explorer() {
 		chdir(fd.getPath().c_str());
 		quit();
 		setClock(DEFAULT_CPU_CLK);
-		execlp("/bin/sh","/bin/sh","-c",command.c_str(),NULL);
+		//execlp("/bin/sh","/bin/sh","-c",command.c_str(),NULL); //TODO
 
 		//if execution continues then something went wrong and as we already called SDL_Quit we cannot continue
 		//try relaunching gmenu2x
 		WARNING("Error executing selected application, re-launching gmenu2x");
 		chdir(getExePath().c_str());
-		execlp("./gmenu2x", "./gmenu2x", NULL);
+		//execlp("./gmenu2x", "./gmenu2x", NULL); //TODO
 	}
 }
 
@@ -1035,7 +1095,7 @@ void GMenu2X::options() {
 	int curGlobalVolume = confInt["globalVolume"];
 	//G
 	int prevgamma = confInt["gamma"];
-	bool showRootFolder = fileExists("/mnt/root");
+	bool showRootFolder = fileExists("uda://");
 
 	FileLister fl_tr("translations");
 	fl_tr.browse();
@@ -1071,10 +1131,12 @@ void GMenu2X::options() {
 		if (curGlobalVolume!=confInt["globalVolume"]) setVolume(confInt["globalVolume"]);
 		if (lang == "English") lang = "";
 		if (lang != tr.lang()) tr.setLang(lang);
-		if (fileExists("/mnt/root") && !showRootFolder)
-			unlink("/mnt/root");
-		else if (!fileExists("/mnt/root") && showRootFolder)
-			symlink("/","/mnt/root");
+		//if (fileExists("uda://") && !showRootFolder)
+			//unlink("/mnt/root");
+		//else if (!fileExists("/mnt/root") && showRootFolder) {
+			//symlink("/","/mnt/root");
+			//TODO
+		//}
 		writeConfig();
 	}
 }
@@ -1166,14 +1228,14 @@ void GMenu2X::setSkin(const string &skin, bool setWallpaper) {
 	skinConfColors[COLOR_FONT_OUTLINE] = (RGBAColor){0,0,0,200};
 
 	//load skin settings
-	string skinconfname = "skins/"+skin+"/skin.conf";
+	string skinconfname = "uda://gmenu2x/skins/"+skin+"/skin.conf";
 	if (fileExists(skinconfname)) {
 		ifstream skinconf(skinconfname.c_str(), ios_base::in);
 		if (skinconf.is_open()) {
 			string line;
 			while (getline(skinconf, line, '\n')) {
 				line = trim(line);
-				DEBUG("skinconf: '%s'", line.c_str());
+				INFO("skinconf: '%s'", line.c_str());
 				string::size_type pos = line.find("=");
 				string name = trim(line.substr(0,pos));
 				string value = trim(line.substr(pos+1,line.length()));
@@ -1189,8 +1251,8 @@ void GMenu2X::setSkin(const string &skin, bool setWallpaper) {
 			}
 			skinconf.close();
 
-			if (setWallpaper && !skinConfStr["wallpaper"].empty() && fileExists("skins/"+skin+"/wallpapers/"+skinConfStr["wallpaper"]))
-				confStr["wallpaper"] = "skins/"+skin+"/wallpapers/"+skinConfStr["wallpaper"];
+			if (setWallpaper && !skinConfStr["wallpaper"].empty() && fileExists("uda://gmenu2x/skins/"+skin+"/wallpapers/"+skinConfStr["wallpaper"]))
+				confStr["wallpaper"] = "uda://gmenu2x/skins/"+skin+"/wallpapers/"+skinConfStr["wallpaper"];
 		}
 	}
 
@@ -1314,7 +1376,7 @@ void GMenu2X::contextMenu() {
 			fadeAlpha = intTransition(0,200,tickStart,500,tickNow);
 		else
 			input.setWakeUpInterval(0);
-		s->box(0, 0, resX, resY, 0,0,0,fadeAlpha);
+		s->box(25, 25, (resX - 25), (resY -25), 0,0,0,fadeAlpha);
 		s->box(box.x, box.y, box.w, box.h, skinConfColors[COLOR_MESSAGE_BOX_BG]);
 		s->rectangle( box.x+2, box.y+2, box.w-4, box.h-4, skinConfColors[COLOR_MESSAGE_BOX_BORDER] );
 
@@ -1387,8 +1449,9 @@ void GMenu2X::saveScreenshot() {
 		fname = "screen"+fname+".bmp";
 	} while (fileExists(fname));
 	SDL_SaveBMP(s->raw,fname.c_str());
-	sync();
+//	sync();
 	ledOff();
+// TODO
 }
 
 void GMenu2X::addLink() {
@@ -1396,8 +1459,9 @@ void GMenu2X::addLink() {
 	if (fd.exec()) {
 		ledOn();
 		menu->addLink(fd.getPath(), fd.getFile());
-		sync();
+//		sync();
 		ledOff();
+//TODO
 	}
 }
 
@@ -1511,8 +1575,8 @@ void GMenu2X::editLink() {
 			menu->linkChangeSection(menu->selLinkIndex(), menu->selSectionIndex(), newSectionIndex - menu->getSections().begin());
 		}
 		menu->selLinkApp()->save();
-		sync();
-
+//		sync();
+//TODO
 		ledOff();
 	}
 }
@@ -1525,7 +1589,8 @@ void GMenu2X::deleteLink() {
 		if (mb.exec() == CONFIRM) {
 			ledOn();
 			menu->deleteSelectedLink();
-			sync();
+//			sync();
+//TODO
 			ledOff();
 		}
 	}
@@ -1541,7 +1606,8 @@ void GMenu2X::addSection() {
 			ledOn();
 			if (menu->addSection(id.getInput())) {
 				menu->setSectionIndex( menu->getSections().size()-1 ); //switch to the new section
-				sync();
+//				sync();
+//TODO
 			}
 			ledOff();
 		}
@@ -1569,11 +1635,11 @@ void GMenu2X::renameSection() {
 					if (!fileExists(newicon)) {
 						rename(oldicon.c_str(), "tmpsectionicon");
 						rename("tmpsectionicon", newicon.c_str());
-						sc.move("skin:"+oldpng, "skin:"+newpng);
+						sc.move("uda://gmenu2x/skins/Default/"+oldpng, "uda://gmenu2x/skins/Default/"+newpng);
 					}
 				}
 				menu->renameSection(menu->selSectionIndex(), id.getInput());
-				sync();
+//				sync(); //TODO
 			}
 			ledOff();
 		}
@@ -1588,7 +1654,7 @@ void GMenu2X::deleteSection() {
 		ledOn();
 		if (rmtree(path+"sections/"+menu->selSection())) {
 			menu->deleteSelectedSection();
-			sync();
+//			sync(); //TODO
 		}
 		ledOff();
 	}
@@ -1673,7 +1739,7 @@ void GMenu2X::scanner() {
 		lineY += 26;
 	}
 
-	sync();
+//	sync(); //TODO
 	ledOff();
 
 	bool close = false;
@@ -1703,6 +1769,9 @@ void GMenu2X::scanPath(string path, vector<string> *files) {
 			ext = filepath.substr(filepath.length()-4,4);
 #if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO)
 			if (ext==".gpu" || ext==".gpe")
+#endif
+#if defined(XENON) || defined(LIBXENON)
+			if (ext==".elf" || ext==".elf32")
 #endif
 				files->push_back(filepath);
 		}
@@ -1806,7 +1875,7 @@ void GMenu2X::applyDefaultTimings() {
 void GMenu2X::setClock(unsigned mhz) {
 	mhz = constrain(mhz,50,confInt["maxClock"]);
 	if (memdev > 0) {
-		DEBUG("Setting clock to %d", mhz);
+		INFO("Setting clock to %d", mhz);
 #ifdef TARGET_GP2X
 		unsigned v;
 		unsigned mdiv, pdiv=3, scale=0;
@@ -1856,6 +1925,7 @@ void GMenu2X::setGamma(int gamma) {
 
 int GMenu2X::getVolume() {
 	int vol = -1;
+#if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO)
 	unsigned long soundDev = open("/dev/mixer", O_RDONLY);
 	if (soundDev) {
 		ioctl(soundDev, SOUND_MIXER_READ_PCM, &vol);
@@ -1865,10 +1935,12 @@ int GMenu2X::getVolume() {
 			return vol & 0xFF;
 		}
 	}
+#endif
 	return vol;
 }
 
 void GMenu2X::setVolume(int vol) {
+#if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO)
 	vol = constrain(vol,0,100);
 	unsigned long soundDev = open("/dev/mixer", O_RDWR);
 	if (soundDev) {
@@ -1876,39 +1948,44 @@ void GMenu2X::setVolume(int vol) {
 		ioctl(soundDev, SOUND_MIXER_WRITE_PCM, &vol);
 		close(soundDev);
 	}
+#endif
 }
 
 void GMenu2X::setVolumeScaler(int scale) {
+#if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO)
 	scale = constrain(scale,0,MAX_VOLUME_SCALE_FACTOR);
 	unsigned long soundDev = open("/dev/mixer", O_WRONLY);
 	if (soundDev) {
 		ioctl(soundDev, SOUND_MIXER_PRIVATE2, &scale);
 		close(soundDev);
 	}
+#endif
 }
 
 int GMenu2X::getVolumeScaler() {
 	int currentscalefactor = -1;
+#if defined(TARGET_GP2X) || defined(TARGET_WIZ) || defined(TARGET_CAANOO)
 	unsigned long soundDev = open("/dev/mixer", O_RDONLY);
 	if (soundDev) {
 		ioctl(soundDev, SOUND_MIXER_PRIVATE1, &currentscalefactor);
 		close(soundDev);
 	}
+#endif
 	return currentscalefactor;
 }
 
 const string &GMenu2X::getExePath() {
+	return "uda://gmenu2x/";/* TODO
 	if (path.empty()) {
 		char buf[255];
 		memset(buf, 0, 255);
 		int l = readlink("/proc/self/exe", buf, 255);
-
 		path = buf;
 		path = path.substr(0,l);
 		l = path.rfind("/");
 		path = path.substr(0,l+1);
 	}
-	return path;
+	return path; */
 }
 
 string GMenu2X::getDiskFree() {
@@ -1981,7 +2058,7 @@ void GMenu2X::drawTopBar(Surface *s) {
 	if (bar != NULL)
 		bar->blit(s, 0, 0);
 	else
-		s->box(0, 0, resX, skinConfInt["topBarHeight"],
+		s->box(25, 25, (resX - 25), skinConfInt["topBarHeight"],
 		skinConfColors[COLOR_TOP_BAR_BG]);
 }
 
@@ -1992,5 +2069,5 @@ void GMenu2X::drawBottomBar(Surface *s) {
 	if (bar != NULL)
 		bar->blit(s, 0, resY-bar->raw->h);
 	else
-		s->box(0, resY-20, resX, 20, skinConfColors[COLOR_BOTTOM_BAR_BG]);
+		s->box(25, resY-45, (resX - 25), 20, skinConfColors[COLOR_BOTTOM_BAR_BG]);
 }

@@ -22,6 +22,7 @@
 #include "link.h"
 #include "menu.h"
 #include "selector.h"
+#define TR {printf("[Trace] in function %s, line %d, file %s\n",__FUNCTION__,__LINE__,__FILE__);}
 
 using namespace std;
 using namespace fastdelegate;
@@ -33,6 +34,7 @@ Link::Link(GMenu2X *gmenu2x_)
 	action = MakeDelegate(this, &Link::run);
 	edited = false;
 	iconPath = gmenu2x->sc.getSkinFilePath("icons/generic.png");
+	TR;
 	iconX = 0;
 	padding = 0;
 
@@ -55,7 +57,9 @@ bool Link::paintHover() {
 }
 
 void Link::updateSurfaces() {
+	TR;
 	iconSurface = gmenu2x->sc[getIconPath()];
+	TR;
 }
 
 const string &Link::getTitle() {
@@ -81,22 +85,33 @@ const string &Link::getIcon() {
 }
 
 void Link::setIcon(const string &icon) {
-	string skinpath = gmenu2x->getExePath()+"skins/"+gmenu2x->confStr["skin"];
-
+	TR;
+	//TODO
+	//string skinpath = gmenu2x->getExePath()+"skins/"+gmenu2x->confStr["skin"];
+	string skinpath = "uda://gmenu2x/skins/Default";
+	//string skinpath = gmenu2x->getExePath()+"skins/Default";
+	TR;
 	if (icon.substr(0,skinpath.length()) == skinpath) {
+		TR;
 		string tempIcon = icon.substr(skinpath.length(), icon.length());
 		string::size_type pos = tempIcon.find("/");
+		TR;
 		if (pos != string::npos)
-			this->icon = "skin:"+tempIcon.substr(pos+1,icon.length());
+			this->icon = "uda://gmenu2x/skins/Default/"+tempIcon.substr(pos+1,icon.length());
 		else
 			this->icon = icon;
+		TR;
 	} else {
+		TR;
 		this->icon = icon;
 	}
-
-	iconPath = strreplace(this->icon,"skin:",skinpath+"/");
+	TR;
+	iconPath = strreplace(this->icon,"uda://gmenu2x/skins/Default/",skinpath+"/");
+	TR;
 	if (iconPath.empty() || !fileExists(iconPath)) {
-		iconPath = strreplace(this->icon,"skin:",gmenu2x->getExePath()+"skins/Default/");
+		TR;
+		iconPath = strreplace(this->icon,"skin:","uda://gmenu2x/skins/Default/"); //TODO
+		TR;
 		if (!fileExists(iconPath)) searchIcon();
 	}
 
@@ -105,6 +120,7 @@ void Link::setIcon(const string &icon) {
 }
 
 const string &Link::searchIcon() {
+	TR;
 	iconPath = gmenu2x->sc.getSkinFilePath("icons/generic.png");
 	return iconPath;
 }
@@ -117,8 +133,10 @@ const string &Link::getIconPath() {
 void Link::setIconPath(const string &icon) {
 	if (fileExists(icon))
 		iconPath = icon;
-	else
+	else {
 		iconPath = gmenu2x->sc.getSkinFilePath("icons/generic.png");
+		TR;
+	}
 	updateSurfaces();
 }
 

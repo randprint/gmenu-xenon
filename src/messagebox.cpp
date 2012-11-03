@@ -20,9 +20,9 @@
 
 #include <SDL.h>
 #include <SDL_gfxPrimitives.h>
-
+#include <unistd.h>
 #include "messagebox.h"
-
+#include <threads/threads.h>
 using namespace std;
 
 MessageBox::MessageBox(GMenu2X *gmenu2x, const string &text, const string &icon) {
@@ -72,7 +72,7 @@ int MessageBox::exec() {
 
 	Surface bg(gmenu2x->s);
 	//Darken background
-	bg.box(0, 0, gmenu2x->resX, gmenu2x->resY, 0,0,0,200);
+	bg.box(25, 25, (gmenu2x->resX - 25), (gmenu2x->resY - 25), 0,0,0,200);
 
 	SDL_Rect box;
 	box.h = gmenu2x->font->getHeight()*3 +18;
@@ -122,7 +122,7 @@ int MessageBox::exec() {
 		for (uint i=0; i<buttons.size(); i++)
 			if (buttons[i]!="" && gmenu2x->input[i]) result = i;
 
-		usleep(LOOP_DELAY);
+		thread_sleep(LOOP_DELAY); //todo
 	}
 
 	return result;

@@ -19,7 +19,9 @@
  ***************************************************************************/
 
 #include <SDL_gfxPrimitives.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include "surface.h"
 #include "fonthelper.h"
 #include "utilities.h"
@@ -131,13 +133,15 @@ void Surface::load(const string &img, bool alpha, const string &skin) {
 
 	string skinpath;
 	if (!skin.empty() && !img.empty() && img[0]!='/') {
-		skinpath = "skins/"+skin+"/"+img;
+		//skinpath = "skins/"+skin+"/"+img; //TODO
+		skinpath = "skins/Default/"+img;
 		if (!fileExists(skinpath))
-			skinpath = "skins/Default/"+img;
+			skinpath = "uda://gmenu2x/skins/Default/"+img; //TODO
 	} else {
+		INFO("img path: '%s'", skinpath.c_str());
 		skinpath = img;
 	}
-
+	INFO("Surface path: '%s'", skinpath.c_str());
 	raw = IMG_Load(skinpath.c_str());
 	if (raw != NULL) {
 		if (alpha)

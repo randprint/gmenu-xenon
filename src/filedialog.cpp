@@ -19,7 +19,7 @@
  ***************************************************************************/
 
 #include <SDL.h>
-#include <SDL_gfxPrimitives.h>
+//#include <SDL_gfxPrimitives.h>
 
 //for browsing the filesystem
 #include <sys/stat.h>

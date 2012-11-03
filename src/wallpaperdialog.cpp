@@ -19,7 +19,10 @@
  ***************************************************************************/
 
 #include <iostream>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 #include "wallpaperdialog.h"
 #include "filelister.h"
 #include "debug.h"
@@ -46,7 +49,7 @@ bool WallpaperDialog::exec()
 			wallpapers.push_back(fl.getFiles()[i]);
 	}
 
-	DEBUG("Wallpapers: %i", wallpapers.size());
+	INFO("Wallpapers: %i", wallpapers.size());
 
 	uint i, selected = 0, firstElement = 0, iY;
 	while (!close) {

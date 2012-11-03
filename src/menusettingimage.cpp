@@ -45,7 +45,7 @@ void MenuSettingImage::setValue(const string &value) {
 		string tempIcon = value.substr(skinpath.length(), value.length());
 		string::size_type pos = tempIcon.find("/");
 		if (pos != string::npos) {
-			*_value = "skin:" + tempIcon.substr(pos + 1, value.length());
+			*_value = "uda://gmenu2x/skins/Default/" + tempIcon.substr(pos + 1, value.length());
 		} else {
 			*_value = value;
 		}

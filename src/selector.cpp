@@ -207,7 +207,7 @@ void Selector::prepare(FileLister *fl, vector<string> *screens, vector<string> *
 		if (titles->at(i)=="")
 			titles->at(i) = noext;
 
-		DEBUG("Searching for screen '%s%s.png'", screendir.c_str(), noext.c_str());
+		INFO("Searching for screen '%s%s.png'", screendir.c_str(), noext.c_str());
 
 		if (fileExists(screendir+noext+".png"))
 			screens->at(i) = screendir+noext+".png";

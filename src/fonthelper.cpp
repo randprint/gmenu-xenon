@@ -1,12 +1,13 @@
 #include "fonthelper.h"
 #include "utilities.h"
 #include "debug.h"
+#include <stdio.h>
 
 FontHelper::FontHelper(const string &font, int size, RGBAColor textColor, RGBAColor outlineColor)
 	: textColor(textColor),
 	  outlineColor(outlineColor) {
 	if (!TTF_WasInit()) {
-		DEBUG("Initializing font");
+		INFO("Initializing font");
 		if (TTF_Init() == -1) {
 			ERROR("TTF_Init: %s", TTF_GetError());
 			exit(2);

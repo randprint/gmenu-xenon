@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <math.h>
 #include <fstream>
-
+#include <unistd.h>
 #include "gmenu2x.h"
 #include "linkapp.h"
 #include "menu.h"
@@ -44,11 +44,14 @@ Menu::Menu(GMenu2X *gmenu2x) {
 	struct dirent *dptr;
 	string filepath;
 
-	if ((dirp = opendir("sections")) == NULL) return;
+	if ((dirp = opendir("uda://gmenu2x/sections")) == NULL) {
+		ERROR("Error: opendir(uda://gmenu2x/sections)");
+		return;
+	}
 
 	while ((dptr = readdir(dirp))) {
 		if (dptr->d_name[0]=='.') continue;
-		filepath = (string)"sections/"+dptr->d_name;
+		filepath = (string)"uda://gmenu2x/sections/"+dptr->d_name;
 		int statRet = stat(filepath.c_str(), &st);
 		if (!S_ISDIR(st.st_mode)) continue;
 		if (statRet != -1) {
@@ -77,7 +80,7 @@ void Menu::loadIcons() {
 	for (uint i=0; i<sections.size(); i++) {
 		string sectionIcon = "sections/"+sections[i]+".png";
 		if (!gmenu2x->sc.getSkinFilePath(sectionIcon).empty())
-			gmenu2x->sc.add("skin:"+sectionIcon);
+			gmenu2x->sc.add("uda://gmenu2x/skins/Default"+sectionIcon);
 
 		//check link's icons
 		string linkIcon;
@@ -86,7 +89,7 @@ void Menu::loadIcons() {
 			sectionLinks(i)->at(x)->updateSurfaces();
 			LinkApp *linkapp = dynamic_cast<LinkApp*>(sectionLinks(i)->at(x));
 
-			if (linkIcon.substr(0,5)=="skin:") {
+			if (linkIcon.substr(0,5)=="uda://gmenu2x/skins/Default") {
 				linkIcon = gmenu2x->sc.getSkinFilePath(linkIcon.substr(5,linkIcon.length()));
 				if (linkapp != NULL && !fileExists(linkIcon))
 					linkapp->searchIcon();
@@ -157,7 +160,7 @@ void Menu::setSectionIndex(int i) {
 
 string Menu::sectionPath(int section) {
 	if (section<0 || section>(int)sections.size()) section = iSection;
-	return "sections/"+sections[section]+"/";
+	return "uda://gmenu2x/sections/"+sections[section]+"/";
 }
 
 /*====================================
@@ -170,7 +173,7 @@ bool Menu::addActionLink(uint section, const string &title, LinkRunAction action
 	linkact->setSize(gmenu2x->skinConfInt["linkWidth"],gmenu2x->skinConfInt["linkHeight"]);
 	linkact->setTitle(title);
 	linkact->setDescription(description);
-	if (gmenu2x->sc.exists(icon) || (icon.substr(0,5)=="skin:" && !gmenu2x->sc.getSkinFilePath(icon.substr(5,icon.length())).empty()) || fileExists(icon))
+	if (gmenu2x->sc.exists(icon) || (icon.substr(0,5)=="uda://gmenu2x/skins/Default/" && !gmenu2x->sc.getSkinFilePath(icon.substr(5,icon.length())).empty()) || fileExists(icon))
 	linkact->setIcon(icon);
 
 	sectionLinks(section)->push_back(linkact);
@@ -195,18 +198,18 @@ bool Menu::addLink(string path, string file, string section) {
 	if (pos!=string::npos && pos>0) {
 		string ext = title.substr(pos, title.length());
 		transform(ext.begin(), ext.end(), ext.begin(), (int(*)(int)) tolower);
-		if (ext == ".gpu" || ext == ".gpe") wrapper = false;
+		if (ext == ".gpu" || ext == ".gpe" || ext == ".elf" || ext == ".elf32") wrapper = false;
 		title = title.substr(0, pos);
 	}
 
-	string linkpath = "sections/"+section+"/"+title;
+	string linkpath = "uda://gmenu2x/sections/"+section+"/"+title;
 	int x=2;
 	while (fileExists(linkpath)) {
 		stringstream ss;
 		linkpath = "";
 		ss << x;
 		ss >> linkpath;
-		linkpath = "sections/"+section+"/"+title+linkpath;
+		linkpath = "uda://gmenu2x/sections/"+section+"/"+title+linkpath;
 		x++;
 	}
 
@@ -285,7 +288,7 @@ bool Menu::addLink(string path, string file, string section) {
 }
 
 bool Menu::addSection(const string &sectionName) {
-	string sectiondir = "sections/"+sectionName;
+	string sectiondir = "uda://gmenu2x/sections/"+sectionName;
 	if (mkdir(sectiondir.c_str(),0777)==0) {
 		sections.push_back(sectionName);
 		linklist ll;
@@ -308,7 +311,7 @@ void Menu::deleteSelectedLink() {
 void Menu::deleteSelectedSection() {
 	INFO("Deleting section '%s'", selSection().c_str());
 
-	gmenu2x->sc.del("sections/"+selSection()+".png");
+	gmenu2x->sc.del("uda://gmenu2x/sections/"+selSection()+".png");
 	links.erase( links.begin()+selSectionIndex() );
 	sections.erase( sections.begin()+selSectionIndex() );
 	setSectionIndex(0); //reload sections

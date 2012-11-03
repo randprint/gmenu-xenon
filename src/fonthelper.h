@@ -7,9 +7,9 @@
 #include <vector>
 #include <SDL_ttf.h>
 
-#ifdef _WIN32
+
     typedef unsigned int uint;
-#endif
+    
 using std::vector;
 using std::string;
 
